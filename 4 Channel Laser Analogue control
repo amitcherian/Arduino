@@ -1,0 +1,338 @@
+
+/*4 Channel PWM Based Analogue voltage generation with Arduino
+Code Credits: DoraBabu, Electronics Workshop, NCBS(TIFR), Bangalore 560065
+Display/Arduino Connections
+SCLK/8, 
+DIN/9, 
+DC/10, 
+CS/7, 
+RST/12
+
+Encoder/Arduino Connection
+A1, 
+A0, 
+A2
+
+PWM/Laser Outputs
+5/1
+6/2
+3/3
+11/4
+
+*/
+
+
+#include <Adafruit_GFX.h>
+#include <Adafruit_PCD8544.h>
+#include <ClickEncoder.h>
+#include <TimerOne.h>
+
+int LedNo = 1;
+int page = 1;
+int lastLedNo = 1;
+
+String LedNo1 = "LED 1";
+String LedNo2 = "LED 2";
+String LedNo3 = "LED 3";
+String LedNo4 = "LED 4";
+
+boolean backlight = true;
+
+const  uint8_t LED1=5;
+const  uint8_t LED2=6;
+const  uint8_t LED3=3;
+const  uint8_t LED4=11;
+
+int16_t *LedPtr[4];
+
+float Voltage[4];
+  
+void SetPWM(int16_t *LED, boolean IncDec )
+{
+  if (IncDec == true)
+  {
+   ++*LED;
+   if (*LED>255)
+      *LED=255;
+  }
+  else if (IncDec == false)
+  {
+   --*LED;
+    if (*LED < 0)
+     *LED = 0;
+    }
+     return;
+  }
+
+boolean up = false;
+boolean down = false;
+boolean middle = false;
+
+ClickEncoder *encoder;
+int16_t last, value;
+
+Adafruit_PCD8544 display = Adafruit_PCD8544(8, 9, 10, 7, 12); 
+//Adafruit_PCD8544::Adafruit_PCD8544(int8_t SCLK, int8_t DIN, int8_t DC, int8_t CS, int8_t RST)
+
+ void SetBrightness(uint16_t LedPin, int16_t* value)
+  {
+  analogWrite(LedPin , *value );
+  return;
+  }
+
+void setup() {
+
+  Serial.begin(9600);
+
+  encoder = new ClickEncoder(A1, A0, A2);
+  encoder->setAccelerationEnabled(false);
+   
+  display.begin();      
+  display.clearDisplay();
+   
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+  pinMode(LED4, OUTPUT);
+   
+  Timer1.initialize(1000);
+  Timer1.attachInterrupt(timerIsr); 
+  
+  last = encoder->getValue();
+}
+
+ void timerIsr() {
+  encoder->service();
+}
+
+
+void loop()
+{
+ static int16_t LED[4];
+
+ for(uint8_t i=0;i<4;i++)
+{
+  LedPtr[i]=&LED[i];
+  }  
+   
+   drawMenu(); 
+   
+   readRotaryEncoder();
+
+   ClickEncoder::Button b = encoder->getButton();
+   if (b != ClickEncoder::Open) 
+   {
+    switch (b)
+    {
+      case ClickEncoder::Clicked:
+      middle=true;
+      break;
+     }
+   }    
+   if (up && page == 1 ) 
+   {     
+    up = false;
+    lastLedNo = LedNo;
+    LedNo--;
+    if (LedNo==0)
+    {
+      LedNo=4;
+    } 
+   }
+   else if (up && page == 2 && LedNo==1 ) 
+   {
+    up = false;
+    SetPWM(LedPtr[0], false);
+   }
+   else if (up && page == 2 && LedNo==2 ) 
+   {
+    up = false;
+    SetPWM((LedPtr[1]), false);
+    //setPWM
+  }
+  else if (up && page == 2 && LedNo==3 )
+  {
+    up = false;
+    SetPWM((LedPtr[2]), false);
+    //setPWM
+  }
+  else if (up && page == 2 && LedNo==4 )
+  {
+    up = false;
+    SetPWM((LedPtr[3]), false);
+  } 
+  if (down && page == 1) //We have turned the Rotary Encoder Clockwise
+  {
+    down = false;
+    lastLedNo = LedNo;
+    LedNo++;  
+    if (LedNo==5) 
+    {
+      LedNo=1;
+    }
+  }
+  if (down && page == 2 && LedNo==1) 
+  {
+    down = false;
+    SetPWM(LedPtr[0], true);
+   }
+  else if (down && page == 2 && LedNo==2) 
+  {
+    down = false;
+    SetPWM((LedPtr[1]), true);
+   }
+  else if (down && page == 2 && LedNo==3 )
+  {
+    down = false;
+    SetPWM((LedPtr[2]), true);
+   }
+  else if (down && page == 2 && LedNo==4 )
+  {
+    down = false;
+    SetPWM((LedPtr[3]), true);
+   }   
+   if (middle) //Middle Button is Pressed
+  {
+    middle = false;
+    
+    if (page == 1 && LedNo<=4)
+    {
+      page=2;
+     }
+      else if (page == 2) 
+     {
+      page=1; 
+     }
+   }   
+
+ for (int j=0;j<4;j++)
+ {
+   Voltage[j]=*LedPtr[j];
+  Voltage[j]=((Voltage[j]/255)*5);
+  }
+ 
+  
+ }   
+  
+  void drawMenu()
+ {
+
+   
+    
+  if (page==1) 
+  {    
+    display.setTextSize(1);
+    display.clearDisplay();
+     
+    if(LedNo==1)
+    {   
+      displayLedNo(LedNo1, 5,true , Voltage[0]);
+      displayLedNo(LedNo2, 15,false, Voltage[1]);
+      displayLedNo(LedNo3, 25,false, Voltage[2]);
+      displayLedNo(LedNo4, 35,false, Voltage[3]);
+      
+    }
+    else if(LedNo == 2)
+    {
+      displayLedNo(LedNo1, 5,false , Voltage[0]);
+      displayLedNo(LedNo2, 15,true, Voltage[1]);
+      displayLedNo(LedNo3, 25,false, Voltage[2]);
+      displayLedNo(LedNo4, 35,false, Voltage[3]);
+    }
+    else if(LedNo == 3 )
+    {
+      displayLedNo(LedNo1, 5,false , Voltage[0]);
+      displayLedNo(LedNo2, 15,false, Voltage[1]);
+      displayLedNo(LedNo3, 25,true, Voltage[2]);
+      displayLedNo(LedNo4, 35,false, Voltage[3]);
+    }
+     else if(LedNo == 4)
+    {
+      displayLedNo(LedNo1, 5,false , Voltage[0]);
+      displayLedNo(LedNo2, 15,false, Voltage[1]);
+      displayLedNo(LedNo3, 25,false, Voltage[2]);
+      displayLedNo(LedNo4, 35,true, Voltage[3]);
+    } 
+   
+    display.display();
+  }
+
+  if (page==2 && LedNo == 1) 
+  {
+   displayIntMenuPage(LedNo1, Voltage[0]);
+   SetBrightness(LED1,LedPtr[0]);
+  }
+    else if (page==2 && LedNo == 2) 
+  {
+   displayIntMenuPage(LedNo2, Voltage[1]);
+   SetBrightness(LED2,(LedPtr[1]));   
+  }
+   else if (page==2 && LedNo == 3) 
+  {
+   displayIntMenuPage(LedNo3, Voltage[2]);
+   SetBrightness(LED3,(LedPtr[2]));
+  }
+  else if (page==2 && LedNo == 4) 
+  {
+   displayIntMenuPage(LedNo4, Voltage[3]);
+   SetBrightness(LED4,(LedPtr[3]));
+  }
+  
+}
+
+
+void displayIntMenuPage(String LedNo, float value)
+{
+
+    display.setTextSize(1);
+    display.clearDisplay();
+    display.setTextColor(BLACK, WHITE);
+    display.setCursor(20, 0);
+    display.print(LedNo);
+    display.drawFastHLine(0,10,83,BLACK);
+    display.setCursor(5, 15);
+    display.print("Value");
+    display.setTextSize(2);
+    display.setCursor(10, 25);
+    display.print(value);
+    display.setCursor(70, 25);
+    display.print("V");
+    display.setTextSize(2);
+    display.display();
+}
+
+
+void displayLedNo(String item, int position, boolean selected,float val)
+{
+    if(selected)
+    {
+      display.setTextColor(WHITE, BLACK);
+    }else
+    {
+      display.setTextColor(BLACK, WHITE);
+    }
+    display.setCursor(0, position);
+    display.print(">"+item );
+
+    display.setCursor(50, position);
+    display.print(val);
+      
+        
+}
+
+void readRotaryEncoder()
+{
+  value += encoder->getValue();
+  
+  if (value/2 > last) {
+    last = value/2;
+    down = true;
+    delay(150);
+  }else   if (value/2 < last) {
+    last = value/2;
+    up = true;
+    delay(150);
+  }
+}
+
+
